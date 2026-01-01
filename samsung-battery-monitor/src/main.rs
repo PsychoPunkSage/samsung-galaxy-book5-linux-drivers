@@ -22,15 +22,29 @@ use signal_hook::consts::{SIGTERM, SIGINT};
 use signal_hook::flag;
 
 // ============================================================================
-// CONFIGURATION
+// CONFIGURATION (compile-time configurable via environment variables)
 // ============================================================================
 
 const BATTERY_PATH: &str = "/sys/class/power_supply/BAT1";
 const AC_ADAPTER_PATH: &str = "/sys/class/power_supply/ADP1";
-const POLL_INTERVAL_SECS: u64 = 60;
-const LOW_BATTERY_THRESHOLD: u8 = 9;
-const CRITICAL_BATTERY_THRESHOLD: u8 = 5;
-const RESET_THRESHOLD: u8 = 15; // Clear notification state when battery rises above this
+
+// Configurable thresholds - set via env vars at compile time (e.g., LOW_THRESHOLD=9)
+const POLL_INTERVAL_SECS: u64 = match option_env!("POLL_INTERVAL") {
+    Some(v) => konst::result::unwrap_ctx!(konst::primitive::parse_u64(v)),
+    None => 60,
+};
+const LOW_BATTERY_THRESHOLD: u8 = match option_env!("LOW_THRESHOLD") {
+    Some(v) => konst::result::unwrap_ctx!(konst::primitive::parse_u8(v)),
+    None => 9,
+};
+const CRITICAL_BATTERY_THRESHOLD: u8 = match option_env!("CRITICAL_THRESHOLD") {
+    Some(v) => konst::result::unwrap_ctx!(konst::primitive::parse_u8(v)),
+    None => 5,
+};
+const RESET_THRESHOLD: u8 = match option_env!("RESET_THRESHOLD") {
+    Some(v) => konst::result::unwrap_ctx!(konst::primitive::parse_u8(v)),
+    None => 15,
+};
 
 // ============================================================================
 // BATTERY DATA STRUCTURES

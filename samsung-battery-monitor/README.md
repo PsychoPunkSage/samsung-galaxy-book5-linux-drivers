@@ -29,7 +29,9 @@ Production-quality battery monitoring daemon for Samsung Galaxy Book5 Pro runnin
 ```bash
 cd ~/dev/drivers/samsung-battery-monitor
 chmod +x install.sh
-./install.sh
+./install.sh                    # Uses defaults (9%, 5%, 60s)
+# OR with custom thresholds:
+./install.sh --low 15 --critical 10 --poll 45
 ```
 
 The installation script will:
@@ -94,21 +96,44 @@ Press `Ctrl+C` to stop.
 
 ### Configuration
 
-Thresholds and settings are configured in `src/main.rs`:
-
-```rust
-const LOW_BATTERY_THRESHOLD: u8 = 9;      // Low battery warning at 9%
-const CRITICAL_BATTERY_THRESHOLD: u8 = 5; // Critical warning at 5%
-const POLL_INTERVAL_SECS: u64 = 60;       // Check every 60 seconds
-const RESET_THRESHOLD: u8 = 15;           // Clear notifications above 15%
-```
-
-After changing configuration, rebuild and reinstall:
+Configure thresholds via `install.sh` flags:
 
 ```bash
-cargo build --release
-cp target/release/battery-monitor ~/.local/bin/
-systemctl --user restart battery-monitor
+./install.sh [OPTIONS]
+
+Options:
+  -l, --low NUM         Low battery threshold % (default: 9)
+  -c, --critical NUM    Critical battery threshold % (default: 5)
+  -r, --reset NUM       Reset notification state when above % (default: 15)
+  -p, --poll NUM        Poll interval in seconds (default: 60)
+  -h, --help            Show help
+```
+
+**Examples:**
+
+```bash
+# Default (9%, 5%, 60s)
+./install.sh
+
+# Custom thresholds
+./install.sh --low 15 --critical 10
+
+# All options
+./install.sh -l 20 -c 10 -r 25 -p 30
+```
+
+### Reconfiguring
+
+To change thresholds after installation:
+
+```bash
+# 1. Stop the service first
+systemctl --user stop battery-monitor
+
+# 2. Reinstall with new values
+./install.sh --low 12 --critical 7
+
+# Service restarts automatically with new config
 ```
 
 ## How It Works

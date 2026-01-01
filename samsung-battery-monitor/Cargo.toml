@@ -7,9 +7,8 @@ description = "Battery monitoring daemon for Samsung Galaxy Book5 Pro on Linux"
 license = "GPL-2.0-or-later"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
 signal-hook = "0.3"
+konst = "0.3"  # Compile-time const parsing for configurable thresholds
 
 [profile.release]
 opt-level = "z"     # Optimize for size
