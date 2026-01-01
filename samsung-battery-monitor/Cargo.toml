@@ -1,0 +1,18 @@
+[package]
+name = "battery-monitor"
+version = "0.1.0"
+edition = "2021"
+authors = ["Samsung Battery Monitor Contributors"]
+description = "Battery monitoring daemon for Samsung Galaxy Book5 Pro on Linux"
+license = "GPL-2.0-or-later"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+signal-hook = "0.3"
+
+[profile.release]
+opt-level = "z"     # Optimize for size
+lto = true          # Enable Link Time Optimization
+codegen-units = 1   # Better optimization
+strip = true        # Strip symbols for smaller binary
