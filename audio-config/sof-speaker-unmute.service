@@ -1,0 +1,15 @@
+[Unit]
+Description=Samsung Galaxy Book5 Pro - SOF Speaker Unmute
+After=sound.target alsa-restore.service
+Before=pipewire.service wireplumber.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/sleep 2
+ExecStart=/usr/bin/hda-verb /dev/snd/hwC0D0 0x17 0x300 0xb000
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,25 @@
+# Makefile for MAX98390 GPIO enable module
+
+obj-m += max98390_gpio_enable.o
+
+KDIR := /lib/modules/$(shell uname -r)/build
+PWD := $(shell pwd)
+
+all:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
+
+clean:
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
+
+install: all
+	sudo cp max98390_gpio_enable.ko /lib/modules/$(shell uname -r)/kernel/drivers/gpio/
+	sudo depmod -a
+
+load: install
+	sudo modprobe max98390_gpio_enable
+	dmesg | tail -20
+
+unload:
+	sudo modprobe -r max98390_gpio_enable
+
+.PHONY: all clean install load unload
