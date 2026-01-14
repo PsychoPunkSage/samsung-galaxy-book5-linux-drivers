@@ -14,6 +14,7 @@ cargo build --release
 ```
 
 Expected output:
+
 ```
    Compiling battery-monitor v0.1.0 (/home/psychopunk_sage/dev/drivers/samsung-battery-monitor)
     Finished `release` profile [optimized] target(s) in X.XXs
@@ -34,6 +35,7 @@ Or run the binary directly:
 ```
 
 Expected output:
+
 ```
 =============================================================
   Samsung Galaxy Book5 Pro Battery Monitor
@@ -45,7 +47,7 @@ Expected output:
 [INFO] Monitoring: /sys/class/power_supply/BAT1
 [INFO] Low battery threshold: 9%
 [INFO] Critical battery threshold: 5%
-[INFO] Poll interval: 60s
+[INFO] Poll interval: 120s
 [STATUS] Battery: 95% | Status: Discharging | AC: No | Power: 4.7W
 [STATUS] Estimated time remaining: 5h 12m
 ```
@@ -72,6 +74,7 @@ cd ~/dev/drivers/samsung-battery-monitor
 ```
 
 The script will:
+
 - Build the binary
 - Install to `~/.local/bin/`
 - Install systemd service
@@ -85,6 +88,7 @@ systemctl --user status battery-monitor
 ```
 
 Expected output:
+
 ```
 ● battery-monitor.service - Samsung Galaxy Book5 Pro Battery Monitor
      Loaded: loaded (/home/psychopunk_sage/.config/systemd/user/battery-monitor.service; enabled; preset: enabled)
@@ -100,6 +104,7 @@ journalctl --user -u battery-monitor -n 20 --no-pager
 ```
 
 Expected log format:
+
 ```
 Jan 01 23:30:00 Dumbo battery-monitor[12345]: [INFO] Battery monitor started
 Jan 01 23:30:00 Dumbo battery-monitor[12345]: [STATUS] Battery: 95% | Status: Discharging | AC: No | Power: 4.7W
@@ -122,11 +127,13 @@ This will show logs as they are generated. Press `Ctrl+C` to exit.
 **Safer Alternative**: Modify the threshold temporarily for testing:
 
 1. Edit `src/main.rs`:
+
    ```rust
    const LOW_BATTERY_THRESHOLD: u8 = 95;  // Temporarily set to current battery level
    ```
 
 2. Rebuild and reinstall:
+
    ```bash
    cargo build --release
    cp target/release/battery-monitor ~/.local/bin/
@@ -142,11 +149,13 @@ This will show logs as they are generated. Press `Ctrl+C` to exit.
 ### Test 2: AC Plug/Unplug Detection
 
 1. Watch logs in real-time:
+
    ```bash
    journalctl --user -u battery-monitor -f
    ```
 
 2. Unplug AC adapter - look for status change:
+
    ```
    [STATUS] Battery: 95% | Status: Discharging | AC: No | Power: 4.7W
    ```
@@ -216,6 +225,7 @@ journalctl --user -u battery-monitor -n 5 | grep "shutting down gracefully"
 ```
 
 Should see:
+
 ```
 [INFO] Battery monitor shutting down gracefully
 ```
@@ -233,6 +243,7 @@ top -p $(pgrep battery-monitor)
 ```
 
 Expected:
+
 - Memory: < 10 MB
 - CPU: < 1% average
 
@@ -280,6 +291,7 @@ systemctl --user stop battery-monitor
 ```
 
 Common issues:
+
 - Battery device not found
 - Permission denied
 - notify-send not in PATH

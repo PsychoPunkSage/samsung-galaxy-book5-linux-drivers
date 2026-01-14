@@ -5,6 +5,7 @@ This document outlines the roadmap for implementing battery charge threshold con
 ## Current Status
 
 **IMPLEMENTED (Phase 1)**:
+
 - Low battery monitoring and notifications
 - Power draw calculation
 - Time remaining estimation
@@ -12,6 +13,7 @@ This document outlines the roadmap for implementing battery charge threshold con
 - Systemd service integration
 
 **NOT YET IMPLEMENTED**:
+
 - Battery charge threshold control (80% limit, etc.)
 - Performance mode switching (Silent/Balanced/Performance)
 - Fan curve management
@@ -27,11 +29,13 @@ Your Samsung Galaxy Book5 Pro **has the hardware capability** to limit battery c
 **What We Need to Discover:**
 
 1. **The Interface Method**: How does Windows talk to the EC firmware?
+
    - ACPI WMI method calls?
    - Direct EC register writes?
    - ACPI method invocation?
 
 2. **The Protocol**: What commands/values are needed?
+
    - Set threshold to 80%: `ACPI Method SBAT(0x50)` ?
    - Or EC write: `ec_write(0x40, 80)` ?
    - Or WMI call: `wmi_evaluate_method(SAMSUNG_GUID, ...)` ?
@@ -66,6 +70,7 @@ ls -lh *.dsl
 ```
 
 **Upload the following files for analysis:**
+
 - `DSDT.dsl` (Main System Description Table - MOST IMPORTANT)
 - `SSDT*.dsl` (Supplemental System Description Tables)
 - List all `.dsl` files generated
@@ -332,14 +337,14 @@ Add to battery monitor config:
 
 ```json
 {
-    "low_battery_threshold": 9,
-    "critical_battery_threshold": 5,
-    "poll_interval_secs": 60,
-    "charge_control": {
-        "enabled": true,
-        "threshold": 80,
-        "auto_adjust": false
-    }
+  "low_battery_threshold": 9,
+  "critical_battery_threshold": 5,
+  "poll_interval_secs": 120,
+  "charge_control": {
+    "enabled": true,
+    "threshold": 80,
+    "auto_adjust": false
+  }
 }
 ```
 
@@ -348,24 +353,28 @@ Add to battery monitor config:
 Based on typical reverse engineering efforts:
 
 **Week 1-2**: ACPI table analysis
+
 - Decompile and analyze DSDT/SSDT
 - Identify EC device path
 - Map WMI GUIDs to functionality
 - Cross-reference with known Samsung patterns
 
 **Week 3-4**: Safe testing
+
 - Install acpi_call module
 - Test read-only ACPI methods
 - Validate findings with dual-boot comparison
 - Document EC register layout
 
 **Week 5-6**: Prototype driver development
+
 - Implement basic kernel module
 - Create sysfs interface
 - Test charge threshold control
 - Validate safety and reliability
 
 **Week 7-8**: Integration and polish
+
 - Integrate with battery monitor
 - Add configuration support
 - Write documentation
@@ -378,6 +387,7 @@ Based on typical reverse engineering efforts:
 To proceed with Phase 2, I need:
 
 1. **ACPI Tables** (MOST IMPORTANT):
+
    ```bash
    sudo acpidump > acpidump.dat
    acpixtract -a acpidump.dat
@@ -386,11 +396,13 @@ To proceed with Phase 2, I need:
    ```
 
 2. **WMI Device List**:
+
    ```bash
    # Run the wmi_investigate.sh script created above
    ```
 
 3. **Current Battery Info**:
+
    ```bash
    cat /sys/class/power_supply/BAT1/uevent
    ls -la /sys/class/power_supply/BAT1/
@@ -462,6 +474,7 @@ echo "Upload DSDT.dsl and SSDT*.dsl files for analysis"
 ```
 
 Once I receive your ACPI tables, I can:
+
 - Identify the battery control interface
 - Map EC registers
 - Locate WMI method GUIDs

@@ -30,7 +30,7 @@ The install script will:
 
 ✓ Low Battery Notifications (9% threshold)
   - First notification when battery drops to 9%
-  - Persistent reminders every 60 seconds while discharging
+  - Persistent reminders every 120 seconds while discharging
   - Shows: percentage, power draw (Watts), estimated time remaining
 
 ✓ Critical Battery Warnings (5% threshold)
@@ -55,7 +55,7 @@ The install script will:
 ✓ Resource Efficient
   - Memory: <5 MB
   - CPU: <0.1% average
-  - Poll interval: 60 seconds
+  - Poll interval: 120 seconds
 
 ================================================================================
   FILE STRUCTURE
@@ -124,7 +124,7 @@ Current settings (hardcoded in src/main.rs):
   - Low battery threshold:      9%
   - Critical battery threshold: 5%
   - Reset threshold:            15% (clears notification state)
-  - Poll interval:              60 seconds
+  - Poll interval:              120 seconds
 
 To change settings:
   1. Edit src/main.rs (lines 31-33)
