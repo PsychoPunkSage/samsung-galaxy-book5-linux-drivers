@@ -1282,7 +1282,245 @@ Comprehensive documentation: `/home/psychopunk_sage/dev/drivers/audio-config/SOL
 
 ---
 
-**FINAL STATUS**: Root cause identified. Solution ready for testing. MAX98390 I2C investigation was a misdirection - actual control is via HDA coefficient writes using kernel quirk `alc298-samsung-amp-v2-4-amps`.
+**PHASE 9 STATUS**: Root cause identified. Solution ready for testing. MAX98390 I2C investigation was a misdirection - actual control is via HDA coefficient writes using kernel quirk `alc298-samsung-amp-v2-4-amps`.
 
 ---
-*Investigation completed: 2026-01-15*
+
+## Phase 10: Solution Testing - FAILED
+
+**Time**: 2026-01-16 (Night Session)
+**Status**: SOLUTION DID NOT WORK - Device requires new kernel support
+
+### Test 1: SOF Bypass + Samsung Amp v2 Quirk
+
+#### Configuration Applied
+```bash
+# /etc/modprobe.d/disable-sof.conf
+options snd-intel-dspcfg dsp_driver=1
+
+# /etc/modprobe.d/samsung-audio-fix.conf
+options snd-hda-intel model=alc298-samsung-amp-v2-4-amps
+```
+
+#### Results After Reboot
+
+**SOF Status**: Successfully disabled
+```
+$ cat /proc/asound/cards
+ 0 [PCH            ]: HDA-Intel - HDA Intel PCH
+                      HDA Intel PCH at 0x3016200000 irq 188
+```
+
+**Fixup Application**: SUCCESS - Quirk was applied
+```
+$ sudo dmesg | grep -iE "samsung|fixup|alc298"
+snd_hda_codec_realtek hdaudioC0D0: ALC298: picked fixup alc298-samsung-amp-v2-4-amps (model specified)
+snd_hda_codec_realtek hdaudioC0D0: autoconfig for ALC298: line_outs=1 (0x17/0x0/0x0/0x0/0x0) type:speaker
+```
+
+**Speaker Test**: FAILED - No sound
+```
+$ speaker-test -c2 -t wav -l 1
+# Audio plays through system but no audible output from speakers
+```
+
+### Test 2: Codec State Analysis
+
+#### GPIO State - All Disabled
+```
+GPIO: io=8, o=0, i=0, unsolicited=1, wake=0
+  IO[0]: enable=0, dir=0, wake=0, sticky=0, data=0, unsol=0
+  IO[1]: enable=0, dir=0, wake=0, sticky=0, data=0, unsol=0
+  IO[2]: enable=0, dir=0, wake=0, sticky=0, data=0, unsol=0
+  IO[3]: enable=0, dir=0, wake=0, sticky=0, data=0, unsol=0
+  IO[4]: enable=0, dir=0, wake=0, sticky=0, data=0, unsol=0
+  IO[5]: enable=0, dir=0, wake=0, sticky=0, data=0, unsol=0
+  IO[6]: enable=0, dir=0, wake=0, sticky=0, data=0, unsol=0
+  IO[7]: enable=0, dir=0, wake=0, sticky=0, data=0, unsol=0
+```
+
+**Observation**: The Samsung amp v2 fixup should enable some GPIOs during playback. All remaining at 0 indicates the enable sequence isn't working.
+
+#### Node 0x17 (Speaker Pin) - Hardware Muted
+```
+Node 0x17 [Pin Complex] wcaps 0x40058d: Stereo Amp-Out
+  Amp-Out vals:  [0x00 0x00]   <- MUTED
+  Pincap 0x0001001c: OUT HP EAPD Detect
+  EAPD 0x2: EAPD
+  Pin Default 0x90170110: [Fixed] Speaker at Int N/A
+```
+
+**Observation**: Pin amplifier is stuck at 0x00 (muted) despite ALSA showing Speaker Playback Switch as "on".
+
+### Test 3: Manual Pin Unmute Attempt
+
+```bash
+$ sudo hda-verb /dev/snd/hwC0D0 0x17 SET_AMP_GAIN_MUTE 0xb000
+nid = 0x17, verb = 0x300, param = 0xb000
+value = 0x0
+
+$ cat "/proc/asound/card0/codec#0" | grep -A5 "Node 0x17" | grep "Amp-Out vals"
+  Amp-Out vals:  [0x00 0x00]   <- UNCHANGED
+```
+
+**Result**: hda-verb command accepted but value did not change. Pin amp appears to be controlled by something else.
+
+### Test 4: Manual Coefficient Writes
+
+#### Reading Current Coefficient State
+```bash
+# Coefficient 0x22 (amp selector)
+$ sudo hda-verb /dev/snd/hwC0D0 0x20 0x500 0x22 && sudo hda-verb /dev/snd/hwC0D0 0x20 0xc00 0
+value = 0x3d  # Amp 0x3d currently selected
+
+# Coefficient 0x3a (enable register)
+$ sudo hda-verb /dev/snd/hwC0D0 0x20 0x500 0x3a && sudo hda-verb /dev/snd/hwC0D0 0x20 0xc00 0
+value = 0xe800  # Current value (not 0x81 expected for enabled)
+
+# Coefficient 0xff (enable bit)
+$ sudo hda-verb /dev/snd/hwC0D0 0x20 0x500 0xff && sudo hda-verb /dev/snd/hwC0D0 0x20 0xc00 0
+value = 0x0  # Should be 0x01 when enabled
+```
+
+#### Manual Enable Sequence (All 4 Amps)
+```bash
+# Enable amp 0x38
+sudo hda-verb /dev/snd/hwC0D0 0x20 0x500 0x22 && sudo hda-verb /dev/snd/hwC0D0 0x20 0x400 0x38
+sudo hda-verb /dev/snd/hwC0D0 0x20 0x500 0x3a && sudo hda-verb /dev/snd/hwC0D0 0x20 0x400 0x81
+sudo hda-verb /dev/snd/hwC0D0 0x20 0x500 0xff && sudo hda-verb /dev/snd/hwC0D0 0x20 0x400 0x01
+
+# Repeated for 0x39, 0x3c, 0x3d...
+```
+
+**Result**: Commands executed successfully but NO SOUND produced.
+
+### Test 5: 2-Amps Variant
+
+```bash
+$ sudo sed -i 's/4-amps/2-amps/' /etc/modprobe.d/samsung-audio-fix.conf
+$ sudo update-initramfs -u && sudo reboot
+```
+
+**Result**: Same behavior - fixup applies, no sound.
+
+### Test 6: Kernel Source Verification
+
+#### Samsung Code EXISTS in Ubuntu 6.14 Kernel
+```bash
+$ grep -rn "samsung" linux-source-6.14.0/sound/pci/hda/patch_realtek.c | head -5
+4868:static inline void alc298_samsung_write_coef_pack(struct hda_codec *codec,
+4876:struct alc298_samsung_amp_desc {
+4881:static void alc298_fixup_samsung_amp(struct hda_codec *codec,
+...
+```
+
+#### Model Names Exist in Compiled Module
+```bash
+$ zstd -d -c /lib/modules/$(uname -r)/kernel/sound/pci/hda/snd-hda-codec-realtek.ko.zst | strings | grep -i "samsung-amp-v2"
+alc298-samsung-amp-v2-2-amps
+alc298-samsung-amp-v2-4-amps
+```
+
+**Conclusion**: Code exists and model names are recognized. The issue is NOT missing code.
+
+### Critical Finding: Different Hardware Architecture
+
+The Samsung Galaxy Book5 Pro (Lunar Lake, 0x144dca08) appears to have a **different amplifier control mechanism** than the Book2/Book3 Pro models for which the fixup was designed.
+
+Evidence:
+1. Fixup applies successfully (confirmed in dmesg)
+2. Coefficient registers are accessible
+3. Coefficient writes are accepted
+4. But NO audible output from speakers
+5. No amp enable debug messages during playback
+6. All GPIOs remain disabled
+
+### Final Diagnosis
+
+| Component | Status | Conclusion |
+|-----------|--------|------------|
+| Kernel code | ✅ Present | Not the issue |
+| Model parameter | ✅ Recognized | Not the issue |
+| Fixup application | ✅ Applied | Not the issue |
+| Coefficient access | ✅ Working | Not the issue |
+| Coefficient writes | ✅ Accepted | Not the issue |
+| Speaker output | ❌ Silent | **THIS IS THE ISSUE** |
+
+**Root Cause**: The existing `alc298-samsung-amp-v2` coefficient sequences do NOT enable the speakers on Galaxy Book5 Pro (Lunar Lake). This device requires either:
+1. Different coefficient values
+2. Additional GPIO control
+3. A separate power enable mechanism
+4. Completely different driver approach
+
+### Comparison with Working Models
+
+| Device | Subsystem ID | Fixup | Status |
+|--------|--------------|-------|--------|
+| Galaxy Book2 Pro | 0xc870 | samsung-amp-v2-2-amps | Working |
+| Galaxy Book3 Pro | 0xc886 | samsung-amp-v2-4-amps | Working |
+| Galaxy Book3 Ultra | 0xc1cc | samsung-amp-v2-4-amps | Working |
+| **Galaxy Book5 Pro** | **0xca08** | samsung-amp-v2-4-amps | **NOT WORKING** |
+
+### Files Created This Session
+
+1. `BUG-REPORT.md` - Ready-to-submit GitHub issue
+
+### Recommended Actions
+
+1. **Submit bug report** to:
+   - https://github.com/thesofproject/linux/issues
+   - https://github.com/joshuagrisham/samsung-galaxybook-extras/issues
+   - alsa-devel@alsa-project.org
+
+2. **Revert to SOF** (for better overall audio experience):
+   ```bash
+   sudo rm /etc/modprobe.d/disable-sof.conf
+   sudo rm /etc/modprobe.d/samsung-audio-fix.conf
+   sudo update-initramfs -u
+   sudo reboot
+   ```
+
+3. **Use workarounds**:
+   - USB audio adapter
+   - Bluetooth speakers/headphones
+   - HDMI audio output
+
+4. **Wait for upstream support** - Kernel 6.15+ or later
+
+---
+
+## FINAL INVESTIGATION SUMMARY
+
+### Timeline
+- **Phase 1-3**: Initial diagnostics, I2C investigation (misdirection)
+- **Phase 4-7**: GPIO, EC, ACPI deep dive
+- **Phase 8**: Discovered SOF bypass needed
+- **Phase 9**: Identified Samsung amp v2 coefficient control mechanism
+- **Phase 10**: Tested and FAILED - device needs new driver work
+
+### What We Learned
+
+1. **MAX98390 ACPI declaration is vestigial** - No actual I2C chips present
+2. **Addresses 0x38-0x3D are HDA coefficient targets**, not I2C addresses
+3. **SOF bypasses HDA quirk mechanism** - Must disable SOF for model= to work
+4. **Samsung amp v2 fixup exists and applies** - But doesn't work for this device
+5. **Lunar Lake may need different approach** - New hardware generation
+
+### What Would Fix This
+
+One of these needs to happen:
+1. **Windows driver capture** - Someone with dual-boot captures working coefficient sequences
+2. **Samsung documentation** - Unlikely to be released
+3. **Kernel developer investigation** - With access to similar hardware
+4. **Community reverse engineering** - Systematic coefficient probing
+
+### Current Status: BLOCKED
+
+Speakers on Samsung Galaxy Book5 Pro (0x144dca08) require **new kernel driver work** that doesn't exist yet. This is not a configuration problem - it's a missing driver support issue.
+
+---
+
+**FINAL STATUS**: Investigation complete. Solution NOT found. Device requires new kernel support specific to Galaxy Book5 Pro / Lunar Lake platform. Bug report created for upstream submission.
+
+---
+*Investigation completed: 2026-01-16*

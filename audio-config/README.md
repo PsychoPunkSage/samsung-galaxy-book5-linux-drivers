@@ -1,166 +1,147 @@
-# Samsung Galaxy Book5 Pro - Audio Configuration
+# Samsung Galaxy Book5 Pro - Linux Audio Investigation
 
-This directory contains all audio-related diagnostics, analysis, and fixes for the Samsung Galaxy Book5 Pro speaker issue.
+**Status**: Speaker audio NOT working - Awaiting upstream kernel support
 
----
+## Device Information
 
-## QUICK START - What You Need to Do
+| Component | Details |
+|-----------|---------|
+| **Model** | Samsung Galaxy Book5 Pro (NP940XHA / 940XHA) |
+| **CPU** | Intel Core Ultra 7 258V (Lunar Lake) |
+| **Audio Controller** | Intel Lunar Lake-M HD Audio (8086:a828) |
+| **HDA Codec** | Realtek ALC298 |
+| **Subsystem ID** | `0x144dca08` |
+| **Kernel Tested** | 6.14.0-37-generic (Ubuntu 25.04) |
 
-Your speakers don't work because a hardware amplifier enable signal is missing. Run this test:
+## Problem Summary
+
+Internal speakers produce **no sound**. Headphones work perfectly.
+
+## Issue Trackers
+
+Bug reports submitted to upstream projects:
+
+- **SOF Project**: [thesofproject/linux#5651](https://github.com/thesofproject/linux/issues/5651)
+- **Samsung Galaxy Book Extras**: [joshuagrisham/samsung-galaxybook-extras#90](https://github.com/joshuagrisham/samsung-galaxybook-extras/issues/90)
+
+## Investigation Findings
+
+### Key Discovery
+
+The ACPI firmware declares MAX98390 I2C amplifiers, but this is **misleading**:
+
+- The addresses `0x38, 0x39, 0x3C, 0x3D` are **HDA coefficient register targets**, NOT I2C device addresses
+- No physical MAX98390 chips exist on the I2C bus
+- Speaker amplifiers are controlled via HDA codec coefficient writes
+
+### What Was Tested
+
+| Test | Result |
+|------|--------|
+| SOF audio (default) | Fixup not applied |
+| Traditional HDA with Samsung amp v2 quirk | Fixup applies but no sound |
+| Manual coefficient writes | Registers accessible, no effect |
+| HDA GPIO toggle (all 8 pins) | No effect |
+| Pin amplifier unmute (Node 0x17) | Stuck at 0x00 |
+| 2-amp and 4-amp variants | Both fail |
+
+### Root Cause
+
+The existing `alc298-samsung-amp-v2` kernel fixup works for Galaxy Book2/Book3 Pro but **does NOT work** for the Galaxy Book5 Pro (Lunar Lake). This device likely requires:
+
+1. Different coefficient sequences
+2. Additional GPIO control
+3. A separate power enable mechanism
+4. Or a completely different driver approach
+
+## Repository Structure
+
+```
+audio-config/
+├── README.md                    # This file
+├── INVESTIGATION-LOG.md         # Complete investigation history
+├── BUG-REPORT.md               # Ready-to-use bug report template
+├── scripts/                     # Diagnostic scripts
+│   ├── audio-full-debug.sh     # Full audio diagnostics
+│   ├── check-max98390.sh       # MAX98390/I2C checker
+│   ├── test-gpio-audio.sh      # GPIO testing
+│   ├── test-fixes.sh           # Fix testing script
+│   └── test.sh                 # General test script
+├── reference/                   # Reference code and documentation
+│   ├── patch.txt               # Samsung ALC298 amp kernel patch
+│   ├── samsung-galaxybook.c    # Samsung platform driver source
+│   ├── Kconfig                 # Kernel config for samsung-galaxybook
+│   └── samsung-galaxybook-extras-README.md
+├── samsung-galaxybook-extras/   # Reference DSDT files from other models
+│   ├── dsdt/                   # DSDT dumps from various models
+│   └── 61-keyboard-samsung-galaxybook.hwdb
+├── ucm2/                        # ALSA UCM2 configuration attempts
+│   └── conf.d/sof-hda-dsp/
+└── archive/                     # Old investigation attempts (kept for reference)
+```
+
+## Quick Commands
+
+### Check Current Audio Status
 
 ```bash
-cd /home/psychopunk_sage/dev/drivers/audio-config
+# Card info
+cat /proc/asound/cards
 
-# Terminal 1: Run GPIO test
-sudo ./test-gpio-audio.sh
+# Codec details
+cat "/proc/asound/card0/codec#0" | head -80
 
-# Terminal 2: Play test audio
-speaker-test -c2 -Dhw:0,0
+# ALSA mixer
+amixer -c0 contents | grep -A3 "Speaker"
 ```
 
-Listen for audio. When you hear sound, the test will identify which GPIO pin enables the speakers.
+### Test Samsung Amp v2 Quirk (Does NOT work on Book5 Pro)
 
-**Expected time**: 5 minutes
-**Success probability**: 70%
-
----
-
-## FILES IN THIS DIRECTORY
-
-### MUST READ FIRST
-- **AUDIO-STATUS.md** - Complete consolidated status report
-  - Hardware summary (ALC298 + MAX98390)
-  - What was tried and why it failed
-  - Current status and root cause analysis
-  - Decision tree and next steps
-
-### IMPORTANT TECHNICAL DOCS
-- **MAX98390-ANALYSIS.md** - Deep dive on MAX98390 smart amplifier
-  - ACPI device declaration
-  - Machine driver requirements
-  - Complete kernel driver implementation
-  - Only needed if GPIO test fails
-
-### TEST SCRIPTS (READY TO RUN)
-- **test-gpio-audio.sh** - Test HDA codec GPIO pins (RUN THIS FIRST)
-- **check-max98390.sh** - Check if MAX98390 responds on I2C bus
-- **audio-full-debug.sh** - Complete hardware diagnostic
-
-### OLD FILES (ARCHIVED)
-- `archive/` - Previous analysis attempts and failed fixes
-  - Old markdown docs explaining various approaches
-  - Old scripts that didn't work
-  - Kept for reference only
-
-### UCM CONFIGURATION
-- `ucm2/` - ALSA UCM (Use Case Manager) profiles
-  - Already tested - didn't solve the issue
-  - Software routing is already correct
-
----
-
-## PROBLEM SUMMARY
-
-**Hardware**: Samsung Galaxy Book5 Pro (940XHA)
-- Audio controller: Intel Lunar Lake-M HD Audio
-- Primary codec: Realtek ALC298 (HDA)
-- Secondary: MAX98390 (I2C smart amplifier, possibly unused)
-
-**Symptom**: Internal speakers produce NO sound
-- Headphones work perfectly
-- Audio stream is active and playing
-- All software controls correct
-- HDA codec fully configured
-
-**Root Cause**: Hardware amplifier not enabled
-- Missing GPIO enable signal OR
-- Missing I2C driver for MAX98390 OR
-- Embedded controller issue
-
-**Current Status**: Awaiting GPIO test results
-
----
-
-## WHAT WAS TRIED (AND FAILED)
-
-All of these approaches were attempted but did not fix the speakers:
-
-1. HDA codec verb unmuting - Failed (already unmuted)
-2. ALSA UCM configuration - Failed (routing already correct)
-3. SOF topology modifications - Failed (DSP already configured)
-4. PipeWire/PulseAudio changes - Failed (audio stack working)
-5. Manual mixer controls - Failed (all controls correct)
-6. init_verbs modifications - Failed (wrong target)
-
-**Why they failed**: The problem is NOT software configuration. It's a hardware enable signal.
-
----
-
-## NEXT STEPS
-
-### Step 1: GPIO Test (DO THIS NOW)
-Run `test-gpio-audio.sh` to find the GPIO pin that enables the amplifier.
-
-**If this works:**
-- Simple kernel quirk needed
-- 1 hour to create patch
-- Problem SOLVED
-
-### Step 2: I2C Scan (if GPIO fails)
-Run `check-max98390.sh` to see if MAX98390 chips respond.
-
-**If devices found:**
-- Need complex machine driver
-- 2-4 days of development
-- See MAX98390-ANALYSIS.md
-
-**If no devices:**
-- MAX98390 unused on this model
-- Need deeper hardware analysis
-
-### Step 3: Read Full Status
-Open `AUDIO-STATUS.md` for complete technical analysis and decision tree.
-
----
-
-## DECISION TREE
-
-```
-No speaker sound
-    |
-    ├─→ Run test-gpio-audio.sh
-    |     |
-    |     ├─→ Hear audio? → Note GPIO number → Create kernel patch → DONE
-    |     |                  (70% probability)  (1 hour fix)
-    |     |
-    |     └─→ No audio from any GPIO
-    |           |
-    |           └─→ Run check-max98390.sh
-    |                 |
-    |                 ├─→ I2C devices respond → Build machine driver → Test
-    |                 |    (20% probability)     (2-4 days)
-    |                 |
-    |                 └─→ No response → Check Windows or deep debug
-    |                      (10% probability)
+```bash
+# Disable SOF, enable traditional HDA
+echo "options snd-intel-dspcfg dsp_driver=1" | sudo tee /etc/modprobe.d/disable-sof.conf
+echo "options snd-hda-intel model=alc298-samsung-amp-v2-4-amps" | sudo tee /etc/modprobe.d/samsung-audio-fix.conf
+sudo update-initramfs -u
+sudo reboot
 ```
 
+### Revert to Default (SOF)
+
+```bash
+sudo rm -f /etc/modprobe.d/disable-sof.conf /etc/modprobe.d/samsung-audio-fix.conf
+sudo update-initramfs -u
+sudo reboot
+```
+
+## Workarounds
+
+Until kernel support is added:
+
+- **USB Audio Adapter** - Works immediately
+- **Bluetooth Audio** - Works with built-in Bluetooth
+- **HDMI Audio** - Works when connected to external display
+
+## Contributing
+
+If you have a Samsung Galaxy Book5 Pro and can help with testing:
+
+1. Check the open issues linked above
+2. Run the diagnostic scripts in `scripts/`
+3. Share your findings in the GitHub issues
+
+If you have **Windows dual-boot**, capturing what the Windows driver does would be extremely valuable for reverse engineering the correct coefficient sequences.
+
+## Related Resources
+
+- [Samsung Galaxy Book Driver (Kernel Docs)](https://docs.kernel.org/admin-guide/laptops/samsung-galaxybook.html)
+- [SOF Project](https://github.com/thesofproject/sof)
+- [Original Samsung ALC298 Patch](https://lore.kernel.org/linux-sound/20240909193000.838815-1-josh@joshuagrisham.com/)
+- [SOF Issue #4055](https://github.com/thesofproject/linux/issues/4055) - Background on Samsung speaker amp support
+
+## License
+
+This investigation documentation is provided as-is for the benefit of the Linux audio community. Reference code files retain their original licenses.
+
 ---
 
-## GETTING HELP
-
-If you need assistance:
-
-1. After GPIO test: Share which GPIO (if any) worked
-2. After I2C scan: Share output of `i2cdetect -y 2`
-3. If both fail: Run `audio-full-debug.sh` and share output
-
-Include:
-- Kernel version: `uname -r`
-- Audio controller: `lspci | grep -i audio`
-- Codec info: `cat /proc/asound/card0/codec#0 | head -20`
-
----
-
-**Last Updated**: 2026-01-15
-**Status**: Ready for GPIO testing
-**Maintainer**: Based on comprehensive analysis of Samsung Galaxy Book5 Pro audio
+*Last updated: 2026-01-16*
