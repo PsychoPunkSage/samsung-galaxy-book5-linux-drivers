@@ -1,0 +1,160 @@
+╔══════════════════════════════════════════════════════════════╗
+║   MAX98390 GPIO Power Enable - QUICK START                  ║
+╚══════════════════════════════════════════════════════════════╝
+
+PROBLEM:
+  MAX98390 amplifiers not responding on I2C because GPIO power
+  enable line (pin 98 / 0x62) is not activated.
+
+SOLUTION:
+  Enable the GPIO to power on the amplifiers.
+
+══════════════════════════════════════════════════════════════
+
+FASTEST METHOD - Run this NOW:
+
+  cd /home/psychopunk_sage/dev/drivers/audio-config
+  sudo ./quick_gpio_test.sh
+
+This will automatically:
+  ✓ Test GPIO 610, 658, 723
+  ✓ Enable each one
+  ✓ Scan I2C for response
+  ✓ Report which one works
+
+Expected time: 30 seconds
+
+══════════════════════════════════════════════════════════════
+
+MANUAL TEST (if script fails):
+
+  sudo bash
+  echo 658 > /sys/class/gpio/export
+  echo out > /sys/class/gpio/gpio658/direction
+  echo 1 > /sys/class/gpio/gpio658/value
+  sleep 1
+  i2cdetect -y 2
+
+  Look for "38" and "39" in the output
+
+  If it doesn't work, try GPIO 610 or 723 instead
+
+══════════════════════════════════════════════════════════════
+
+WHAT SUCCESS LOOKS LIKE:
+
+  i2cdetect -y 2 output:
+       0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+  30: -- -- -- -- -- -- -- -- 38 39 -- -- -- -- -- --
+                              ^^  ^^
+                              These should appear!
+
+══════════════════════════════════════════════════════════════
+
+MAKE IT PERMANENT (after finding working GPIO):
+
+  # Example for GPIO 658
+  sudo tee /etc/systemd/system/max98390-power.service <<EOF
+  [Unit]
+  Description=MAX98390 Amplifier Power Enable
+  Before=sound.target
+
+  [Service]
+  Type=oneshot
+  ExecStart=/bin/bash -c 'echo 658 > /sys/class/gpio/export || true'
+  ExecStart=/bin/bash -c 'echo out > /sys/class/gpio/gpio658/direction'
+  ExecStart=/bin/bash -c 'echo 1 > /sys/class/gpio/gpio658/value'
+  RemainAfterExit=yes
+
+  [Install]
+  WantedBy=multi-user.target
+  EOF
+
+  sudo systemctl daemon-reload
+  sudo systemctl enable max98390-power.service
+  sudo systemctl start max98390-power.service
+
+══════════════════════════════════════════════════════════════
+
+ALTERNATIVE: KERNEL MODULE METHOD
+
+  cd /home/psychopunk_sage/dev/drivers/audio-config
+  make -f Makefile.gpio
+  sudo make -f Makefile.gpio load
+  dmesg | tail -20
+
+  Look for: "MAX98390 power GPIO set to HIGH"
+
+══════════════════════════════════════════════════════════════
+
+VERIFICATION COMMANDS:
+
+  # Check GPIO is HIGH
+  cat /sys/class/gpio/gpio658/value
+  # Should output: 1
+
+  # Check I2C responds
+  i2cdetect -y 2
+  # Should show 38 and 39
+
+  # Read device ID
+  i2cget -y 2 0x38 0x21 w
+  # Should output: 0x9000 or 0x0090
+
+  # Check kernel recognized device
+  dmesg | grep -i max98390
+
+══════════════════════════════════════════════════════════════
+
+TROUBLESHOOTING:
+
+  "Device or resource busy"
+    → GPIO already in use, try: echo 1 > /sys/class/gpio/gpio658/value
+
+  "Invalid argument"
+    → Wrong GPIO number, try 610 or 723
+
+  "Permission denied"
+    → Run with sudo, or use kernel module method
+
+  GPIO works but still no I2C response
+    → Try different GPIO number
+    → Check other I2C buses: i2cdetect -y 0, i2cdetect -y 1, etc.
+    → Increase delay: sleep 2 before scanning
+
+══════════════════════════════════════════════════════════════
+
+CANDIDATE GPIO NUMBERS:
+
+  Priority 1: 658  (base 560 + pin 98) - Audio group
+  Priority 2: 610  (base 512 + pin 98) - Platform group
+  Priority 3: 723  (base 625 + pin 98) - PCIe group
+
+══════════════════════════════════════════════════════════════
+
+FILES CREATED:
+
+  quick_gpio_test.sh       - Automated quick test (USE THIS FIRST)
+  enable_max98390_gpio.sh  - Full diagnostic script
+  calculate_gpio.py        - Detailed GPIO analysis
+  max98390_gpio_enable.c   - Kernel module
+  Makefile.gpio            - Module build file
+  MAX98390_GPIO_GUIDE.md   - Complete guide
+  GPIO_ANALYSIS.md         - Technical deep-dive
+  QUICK_START_GPIO.txt     - This file
+
+══════════════════════════════════════════════════════════════
+
+NEXT STEPS AFTER GPIO WORKS:
+
+  1. Verify I2C communication
+  2. Test audio playback
+  3. Make GPIO enable permanent
+  4. Integrate into audio driver
+  5. Test suspend/resume
+
+══════════════════════════════════════════════════════════════
+
+START HERE: sudo ./quick_gpio_test.sh
+
+╚══════════════════════════════════════════════════════════════╝

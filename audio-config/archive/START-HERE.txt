@@ -1,0 +1,130 @@
+================================================================================
+  SAMSUNG GALAXY BOOK5 PRO - SPEAKER FIX (SOF DRIVER)
+================================================================================
+
+PROBLEM: echo to init_verbs gives "I/O error"
+REASON:  SOF driver doesn't support init_verbs interface
+SOLUTION: Use hda-verb tool instead
+
+================================================================================
+  FASTEST FIX (Copy & Paste - Works Immediately)
+================================================================================
+
+sudo apt-get update && sudo apt-get install -y alsa-tools && sudo hda-verb /dev/snd/hwC0D0 0x17 0x300 0xb000 && speaker-test -c2 -t wav -Dhw:0,0
+
+Press Ctrl+C when you hear sound from both speakers.
+
+================================================================================
+  PERMANENT FIX (Run Once, Works Forever)
+================================================================================
+
+cd /home/psychopunk_sage/dev/drivers/audio-config
+sudo ./install-sof-fix.sh
+
+This installs:
+- hda-verb tool
+- systemd service (auto-runs on every boot)
+- /usr/local/bin/sof-speaker-fix command
+
+Reboot to verify it works automatically.
+
+================================================================================
+  FILES IN THIS DIRECTORY
+================================================================================
+
+QUICK START:
+  START-HERE.txt          ← You are here
+  COMMANDS-TO-RUN.md      ← Copy-paste commands
+  QUICK-SOF-FIX.md        ← One-page summary
+
+TOOLS (Use These):
+  install-sof-fix.sh      ← Automated installer (RECOMMENDED)
+  sof_speaker_fix.py      ← Python diagnostic tool
+  sof-speaker-unmute.service ← systemd service file
+
+DOCUMENTATION:
+  README-SOF.md           ← Complete overview
+  SOF-SPEAKER-FIX.md      ← Technical deep-dive (all solutions)
+
+OLD FILES (Don't use - won't work with SOF):
+  speaker_codec_fix.py    ← Uses init_verbs (FAILS on SOF)
+  fix-speaker-unmute.sh   ← Uses init_verbs (FAILS on SOF)
+  speaker-unmute.service  ← Calls old script (FAILS)
+  README.md               ← Pre-SOF documentation
+
+================================================================================
+  VERIFICATION
+================================================================================
+
+Check if speakers are muted:
+  cat /proc/asound/card0/codec#0 | grep -A5 "Node 0x17" | grep "Amp-Out vals"
+
+MUTED (bad):    Amp-Out vals:  [0x80 0x80]
+UNMUTED (good): Amp-Out vals:  [0x00 0x00]
+
+================================================================================
+  TROUBLESHOOTING
+================================================================================
+
+Q: Still getting I/O error when using init_verbs
+A: Stop using init_verbs! Use hda-verb instead:
+   sudo hda-verb /dev/snd/hwC0D0 0x17 0x300 0xb000
+
+Q: hda-verb not found
+A: sudo apt-get install -y alsa-tools
+
+Q: Fix doesn't survive reboot
+A: cd /home/psychopunk_sage/dev/drivers/audio-config && sudo ./install-sof-fix.sh
+
+Q: Speakers still silent
+A: 1. Check if unmute worked (see Verification above)
+   2. Run: alsamixer -c 0 (check Speaker and Master volumes)
+   3. Run: sudo python3 sof_speaker_fix.py (diagnostic output)
+
+================================================================================
+  WHAT IS SOF?
+================================================================================
+
+SOF = Sound Open Firmware (Intel's modern audio stack)
+- Your Galaxy Book5 Pro uses SOF, not legacy HDA
+- SOF doesn't support init_verbs sysfs interface
+- Use hda-verb tool instead (works with hwdep interface)
+
+Check your driver:
+  cat /proc/asound/cards
+  Should show: sof-hda-dsp
+
+================================================================================
+  TECHNICAL DETAILS
+================================================================================
+
+Command breakdown:
+  hda-verb /dev/snd/hwC0D0 0x17 0x300 0xb000
+           |                |    |     |
+           |                |    |     └─ Param: unmute both channels, 0dB
+           |                |    └─────── Verb: SET_AMP_GAIN_MUTE
+           |                └──────────── Node: 0x17 (Speaker Pin)
+           └───────────────────────────── Device: Card 0, Codec 0
+
+Why it works:
+  hda-verb uses hwdep ioctl interface → works with SOF
+  init_verbs uses direct sysfs writes → doesn't work with SOF
+
+================================================================================
+  NEXT STEPS
+================================================================================
+
+1. Run the fast fix (see top of this file)
+2. If it works, run install-sof-fix.sh for persistence
+3. Reboot and verify speakers work automatically
+4. Read README-SOF.md for full details
+
+================================================================================
+
+Platform: Samsung Galaxy Book5 Pro (940XHA)
+Codec:    Realtek ALC298
+Driver:   SOF (snd-sof-pci-intel-tgl)
+OS:       Ubuntu 25.04, Kernel 6.14
+Date:     2026-01-14
+
+================================================================================

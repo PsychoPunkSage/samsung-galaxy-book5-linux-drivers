@@ -1,0 +1,14 @@
+[Unit]
+Description=Samsung Galaxy Book5 Pro Speaker Unmute Fix
+After=sound.target alsa-restore.service
+Before=sound.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/fix-speaker-unmute.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target sound.target
