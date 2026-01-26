@@ -1,0 +1,14 @@
+# Kernel build output
+*.o
+*.ko
+*.mod
+*.cmd
+Module.symvers
+modules.order
+
+# Temporary logs
+*.log
+
+# ACPI dumps (huge binary files)
+*.dat
+*.dsl
