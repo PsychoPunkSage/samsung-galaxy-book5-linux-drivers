@@ -1,1 +1,0 @@
-savedcmd_samsung-galaxybook.ko := ld -r -m elf_x86_64 -z noexecstack --no-warn-rwx-segments --build-id=sha1  -T /usr/src/linux-headers-6.14.0-37-generic/scripts/module.lds -o samsung-galaxybook.ko samsung-galaxybook.o samsung-galaxybook.mod.o .module-common.o
