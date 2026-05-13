@@ -5,8 +5,6 @@ Reverse engineering and driver work for the Samsung Galaxy Book5 Pro (Lunar Lake
 > For camera and audio fixes on related Samsung models (Book4/Book5), see:
 > **[Andycodeman/samsung-galaxy-book4-linux-fixes](https://github.com/Andycodeman/samsung-galaxy-book4-linux-fixes)**
 
----
-
 ## Directories
 
 ### [`/audio-config/`](audio-config/README.md)

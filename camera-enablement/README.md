@@ -1,15 +1,13 @@
-# Camera Enablement — Samsung Galaxy Book5 Pro
+# Camera Enablement: Samsung Galaxy Book5 Pro
 
 **Status: NOT WORKING**
 
 > For a working reference on camera fixes for related Samsung models, see:
 > **[Andycodeman/samsung-galaxy-book4-linux-fixes](https://github.com/Andycodeman/samsung-galaxy-book4-linux-fixes)**
 
----
-
 ## Hardware
 
-- **IPU**: Intel IPU7 (8086:645d) — disabled at PCI level
+- **IPU**: Intel IPU7 (8086:645d), disabled at PCI level
 - **Camera**: OmniVision OV02E1 (2MP IR, Windows Hello)
 
 ## Blockers
@@ -17,8 +15,6 @@
 1. IPU hardware disabled (no memory access, no bus master)
 2. `ov02e1` camera sensor driver missing from kernel
 3. libcamera userspace stack not installed
-
----
 
 ## Step 1: Enable in BIOS
 
@@ -40,15 +36,13 @@ ls -la /dev/video*
 v4l2-ctl --list-devices
 ```
 
----
-
 ## Enable IPU Hardware (experimental)
 
 ```bash
 # Check current state
 lspci -vvnn -s 00:05.0
 
-# Enable PCI device — backup first
+# Enable PCI device (backup first)
 sudo setpci -s 00:05.0 COMMAND=0x0006
 
 lspci -vvnn -s 00:05.0
@@ -74,6 +68,6 @@ cam --list
 ## Next Steps
 
 1. Analyze ACPI DSDT for IPU power management
-2. This is Lunar Lake (IPU7) — not covered by standard `ipu6-drivers`
+2. This is Lunar Lake (IPU7), not covered by standard `ipu6-drivers`
 3. Track Intel IPU7 upstream: https://github.com/intel/ipu6-drivers
 4. Wait for kernel 6.16+ with full Lunar Lake support

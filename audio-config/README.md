@@ -1,11 +1,9 @@
-# Audio — Samsung Galaxy Book5 Pro
+# Audio: Samsung Galaxy Book5 Pro
 
-**Status: Speaker audio NOT working — awaiting upstream kernel support**
+**Status: Speaker audio NOT working. Awaiting upstream kernel support.**
 
 > For working audio fixes on related Samsung models, see:
 > **[Andycodeman/samsung-galaxy-book4-linux-fixes](https://github.com/Andycodeman/samsung-galaxy-book4-linux-fixes)**
-
----
 
 ## Device
 
@@ -25,11 +23,9 @@ Internal speakers produce **no sound**. Headphones work fine.
 - **SOF Project**: [thesofproject/linux#5651](https://github.com/thesofproject/linux/issues/5651)
 - **Samsung Galaxy Book Extras**: [joshuagrisham/samsung-galaxybook-extras#90](https://github.com/joshuagrisham/samsung-galaxybook-extras/issues/90)
 
----
-
 ## Key Finding
 
-ACPI firmware declares MAX98390 I2C amplifiers at `0x38, 0x39, 0x3C, 0x3D` — these are **HDA coefficient register targets**, not real I2C devices. No physical MAX98390 chips on the I2C bus. Speaker amps are controlled via HDA codec coefficient writes.
+ACPI firmware declares MAX98390 I2C amplifiers at `0x38, 0x39, 0x3C, 0x3D`; these are **HDA coefficient register targets**, not real I2C devices. No physical MAX98390 chips on the I2C bus. Speaker amps are controlled via HDA codec coefficient writes.
 
 ## What Was Tested
 
@@ -45,8 +41,6 @@ ACPI firmware declares MAX98390 I2C amplifiers at `0x38, 0x39, 0x3C, 0x3D` — t
 ## Root Cause
 
 `alc298-samsung-amp-v2` works for Book2/Book3 Pro but not Book5 Pro (Lunar Lake). This device likely needs different coefficient sequences, additional GPIO control, or a separate power enable mechanism.
-
----
 
 ## Directory Structure
 
@@ -73,8 +67,6 @@ audio-config/
 └── archive/
 ```
 
----
-
 ## Commands
 
 ### Check Audio Status
@@ -99,8 +91,6 @@ sudo update-initramfs -u && sudo reboot
 sudo rm -f /etc/modprobe.d/disable-sof.conf /etc/modprobe.d/samsung-audio-fix.conf
 sudo update-initramfs -u && sudo reboot
 ```
-
----
 
 ## Workarounds
 
