@@ -1,54 +1,25 @@
-# Samsung Galaxy Book5 / Book5 Pro Linux Drivers
+# Samsung Galaxy Book5 Pro — Linux Driver Work
 
-This repository provides **Linux driver patches, DKMS modules and firmware fixes** for Samsung Galaxy Book5 series laptops (Meteor Lake platform).
+Reverse engineering and driver work for the Samsung Galaxy Book5 Pro (Lunar Lake) on Linux.
 
-### Supported Models
-• Galaxy Book5  
-• Galaxy Book5 Pro  
-• Galaxy Book5 Pro 360  
-
-### What this repo fixes
-- Fn hotkeys (airplane mode, brightness, keyboard backlight)
-- RFKill / WiFi toggle (Fn+F9)
-- Touchpad & HID quirks
-- Audio codec routing (SOF HDA DSP)
-- Speaker codec mute fix (HDA mixer unmute)
-- Intel Meteor Lake platform ACPI issues
-- Battery reporting & thermal sensors
-- Platform controller quirks
-
-### Why this exists
-Samsung does not provide Linux support for Galaxy Book5 laptops.
-This project provides **community-maintained kernel patches and DKMS drivers** to make Book5 devices fully usable on Linux.
+> For camera and audio fixes on related Samsung models (Book4), see:
+> **[Andycodeman/samsung-galaxy-book4-linux-fixes](https://github.com/Andycodeman/samsung-galaxy-book4-linux-fixes)**
 
 ---
 
-## Component Directories
+## Directories
 
-### `/audio-config/`
-Complete audio diagnostics and fixes for Samsung Galaxy Book5 Pro speaker issue:
-- **AUDIO-STATUS.md** - Consolidated status report (READ THIS FIRST)
-- **Test scripts** - GPIO testing and I2C diagnostics
-- **MAX98390 analysis** - Smart amplifier investigation
-- **Archive** - Previous troubleshooting attempts
-- See `/audio-config/README.md` for quick start guide
+### [`/audio-config/`](audio-config/README.md)
+Speaker audio investigation. Internal speakers broken; headphones work. Root cause identified (ALC298 coefficient sequences), fix not yet found. See README for full findings and open upstream issues.
 
-**Current Status:** Awaiting GPIO hardware test
-```bash
-cd /home/psychopunk_sage/dev/drivers/audio-config
-sudo ./test-gpio-audio.sh
-```
+### [`/camera-enablement/`](camera-enablement/QUICK-START.md)
+Intel IPU7 / OmniVision OV02E1 camera investigation. Hardware present but disabled at PCI level. Blocked on missing `ov02e1` driver and Lunar Lake IPU7 kernel support.
 
-### `/samsung-galaxybook-driver/`
-Platform driver for Samsung-specific hardware:
-- Fn key handling
-- Keyboard backlight control
-- Performance modes
-- Battery charge thresholds
-- DKMS module and installation scripts
+### [`/samsung-galaxybook-driver/`](samsung-galaxybook-driver/)
+Platform driver for Samsung-specific hardware: Fn keys, keyboard backlight, performance modes, battery charge thresholds.
 
-### `/samsung-battery-monitor/`
-Battery monitoring and management tools:
-- Charge level tracking
-- Thermal monitoring
-- Power consumption analysis
+### [`/samsung-battery-monitor/`](samsung-battery-monitor/)
+Battery monitoring and thermal management tools.
+
+### [`/samsung-acpi-investigation/`](samsung-acpi-investigation/)
+ACPI / DSDT analysis for power management and hardware enable sequences.
