@@ -1,4 +1,4 @@
-# Samsung Galaxy Book5 Pro — Linux Driver Work
+# Samsung Galaxy Book5 Pro: Linux Driver Work
 
 Reverse engineering and driver work for the Samsung Galaxy Book5 Pro (Lunar Lake) on Linux.
 
